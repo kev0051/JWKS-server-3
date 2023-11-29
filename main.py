@@ -16,8 +16,7 @@ import uuid
 from argon2 import PasswordHasher as ph
 
 # Create/open SQLite DB file at start
-
-connection = sqlite3.connect('totally_not_my_privateKeys.db')
+connection = sqlite3.connect('totally_not_my_privateKeys.db', detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES)
 
 cursor = connection.cursor()
 
@@ -36,7 +35,17 @@ cursor.execute('''
         password_hash TEXT NOT NULL,
         email TEXT UNIQUE,
         date_registered TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        last_login TIMESTAMP      
+        last_login TIMESTAMP NULL    
+)
+''')
+
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS auth_logs(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        request_ip TEXT NOT NULL,
+        request_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        user_id INTEGER,  
+        FOREIGN KEY(user_id) REFERENCES users(id)
 )
 ''')
 
@@ -175,10 +184,16 @@ class MyServer(BaseHTTPRequestHandler):
             else:
                 cursor.execute("INSERT INTO users (username, password_hash) VALUES (?, ?)", (username, password_hash))
 
+            # Retrieve the newly inserted user, coalescing NULL values in last_login
+            cursor.execute("SELECT id, username, password_hash, email, date_registered, last_login FROM users WHERE username = ?", (username,))
+
+            new_user = cursor.fetchone()
+
             connection.commit()
 
-            # Return the password to the client
-            response_data = {"password": password}
+            # Return the password and last_login to the client
+            last_login = new_user[5] if new_user[5] is not None else None
+            response_data = {"password": password, "last_login": last_login}
             self.send_response(201)  # Created
             self.send_header("Content-type", "application/json")
             self.end_headers()
