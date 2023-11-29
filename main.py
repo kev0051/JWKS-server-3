@@ -20,22 +20,6 @@ os.environ["NOT_MY_KEY"] = "1"
 # Set the encryption key from the environment variable
 encryption_key = os.environ.get('NOT_MY_KEY')
 
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from cryptography.hazmat.primitives import serialization, hashes
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from urllib.parse import urlparse, parse_qs
-import base64
-import json
-import jwt
-import datetime
-import sqlite3
-import os
-
-# Set the encryption key from the environment variable
-encryption_key = os.environ.get('NOT_MY_KEY')
-
 if encryption_key is None:
     raise ValueError("Environment variable NOT_MY_KEY is not set.")
 
