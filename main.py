@@ -12,6 +12,8 @@ import json
 import jwt
 import datetime
 import sqlite3
+import uuid
+from argon2 import PasswordHasher as ph
 
 # Create/open SQLite DB file at start
 
@@ -143,7 +145,41 @@ class MyServer(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(bytes(encoded_jwt, "utf-8"))
             return
+        elif parsed_path.path == "/register":
+            # Parse the request body to get the username
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            request_data = json.loads(post_data.decode('utf-8'))
+            username = request_data.get('username')
 
+            # Check if the username already exists
+            cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+            existing_user = cursor.fetchone()
+
+            if existing_user:
+                self.send_response(400)  # Bad Request
+                self.end_headers()
+                return
+
+            # Generate a random UUID as the password
+            password = str(uuid.uuid4())
+
+            # Hash the password using argon2
+            ph_instance = ph()
+            password_hash = ph_instance.hash(password)
+
+            # Insert the new user into the database
+            cursor.execute("INSERT INTO users (username, password_hash) VALUES (?, ?)", (username, password_hash))
+            connection.commit()
+
+            # Return the password to the client
+            response_data = {"password": password}
+            self.send_response(201)  # Created
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
+            self.wfile.write(bytes(json.dumps(response_data), "utf-8"))
+
+            return
         self.send_response(405)
         self.end_headers()
         return
