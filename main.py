@@ -146,11 +146,12 @@ class MyServer(BaseHTTPRequestHandler):
             self.wfile.write(bytes(encoded_jwt, "utf-8"))
             return
         elif parsed_path.path == "/register":
-            # Parse the request body to get the username
+            # Parse the request body to get the username and email
             content_length = int(self.headers['Content-Length'])
             post_data = self.rfile.read(content_length)
             request_data = json.loads(post_data.decode('utf-8'))
             username = request_data.get('username')
+            email = request_data.get('email', None)  # Get the email or set to None if not provided
 
             # Check if the username already exists
             cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
@@ -168,8 +169,12 @@ class MyServer(BaseHTTPRequestHandler):
             ph_instance = ph()
             password_hash = ph_instance.hash(password)
 
-            # Insert the new user into the database
-            cursor.execute("INSERT INTO users (username, password_hash) VALUES (?, ?)", (username, password_hash))
+            # Insert the new user into the database, handling the case when email is not provided
+            if email is not None:
+                cursor.execute("INSERT INTO users (username, password_hash, email) VALUES (?, ?, ?)", (username, password_hash, email))
+            else:
+                cursor.execute("INSERT INTO users (username, password_hash) VALUES (?, ?)", (username, password_hash))
+
             connection.commit()
 
             # Return the password to the client
