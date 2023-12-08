@@ -14,6 +14,35 @@ import datetime
 import sqlite3
 import uuid
 from argon2 import PasswordHasher as ph
+from threading import Lock
+import time
+
+# Define a token bucket for rate limiting
+class TokenBucket:
+    def __init__(self, capacity, refill_rate):
+        self.capacity = capacity
+        self.tokens = capacity
+        self.last_refill_time = time.time()
+        self.refill_rate = refill_rate
+        self.lock = Lock()
+
+    def _refill(self):
+        now = time.time()
+        elapsed_time = now - self.last_refill_time
+        tokens_to_add = elapsed_time * self.refill_rate
+        self.tokens = min(self.capacity, self.tokens + tokens_to_add)
+        self.last_refill_time = now
+
+    def consume(self, tokens):
+        with self.lock:
+            self._refill()
+            if self.tokens >= tokens:
+                self.tokens -= tokens
+                return True
+            return False
+
+# Create a token bucket with a capacity of 10 and a refill rate of 1 token per second
+rate_limiter = TokenBucket(capacity=10, refill_rate=1)
 
 # Create/open SQLite DB file at start
 connection = sqlite3.connect('totally_not_my_privateKeys.db', detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES)
@@ -129,6 +158,12 @@ class MyServer(BaseHTTPRequestHandler):
         parsed_path = urlparse(self.path)
         params = parse_qs(parsed_path.query)
         if parsed_path.path == "/auth":
+            # Rate limit requests to 10 requests per second
+            if not rate_limiter.consume(1):
+                self.send_response(429)  # Too Many Requests
+                self.end_headers()
+                return
+            
             headers = {
                 "kid": "goodKID"
             }
