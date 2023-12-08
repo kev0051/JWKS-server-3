@@ -35,7 +35,7 @@ cursor.execute('''
         password_hash TEXT NOT NULL,
         email TEXT UNIQUE,
         date_registered TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        last_login TIMESTAMP NULL    
+        last_login TIMESTAMP DEFAULT NULL    
 )
 ''')
 
@@ -87,8 +87,8 @@ expired_pempkcs1 = expired_key.private_bytes(
 )
 
 # Generate/store at least one key that expires now and one key that expires in 1 hour
-cursor.execute("INSERT INTO keys (kid, key, exp) VALUES (?, ?, ?)", (1, expired_pempkcs1, datetime.datetime.now(datetime.timezone.utc)))
-cursor.execute("INSERT INTO keys (kid, key, exp) VALUES (?, ?, ?)", (2, pempkcs1, datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)))
+cursor.execute("INSERT INTO keys (kid, key, exp) VALUES (?, ?, ?)", (1, expired_pempkcs1, int(datetime.datetime.timestamp(datetime.datetime.now(datetime.timezone.utc)))))
+cursor.execute("INSERT INTO keys (kid, key, exp) VALUES (?, ?, ?)", (2, pempkcs1, int(datetime.datetime.timestamp(datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1)))))
 
 numbers = private_key.private_numbers()
 
